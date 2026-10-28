@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src https://*.supabase.co; font-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<title>Painel do blog | Simone Afonso</title>
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="pular" href="#app">Pular para o conteúdo</a>
+<header class="topo" id="topo" hidden>
+  <div class="wrap">
+    <img src="logo-ameixa.png" alt="Simone Afonso" width="92" height="53">
+    <span class="tit">Painel do blog</span>
+    <span class="espaco"></span>
+    <button class="btn leve" id="btn-sair" type="button">Sair</button>
+  </div>
+</header>
+<main id="app" class="wrap" tabindex="-1"><p class="carregando">Carregando…</p></main>
+
+<dialog id="dlg-link" aria-labelledby="dlg-link-t">
+  <form method="dialog" id="f-link">
+    <h2 id="dlg-link-t">Inserir link</h2>
+    <label for="link-url">Endereço (começa com https://)</label>
+    <input id="link-url" type="url" placeholder="https://" required>
+    <div class="acoes"><button class="btn leve" value="cancel" formnovalidate>Cancelar</button><button class="btn" value="ok">Inserir</button></div>
+  </form>
+</dialog>
+<dialog id="dlg-img" aria-labelledby="dlg-img-t">
+  <form method="dialog" id="f-img">
+    <h2 id="dlg-img-t">Imagem no texto</h2>
+    <label for="img-file">Escolha a foto</label>
+    <input id="img-file" type="file" accept="image/jpeg,image/png,image/webp" required>
+    <label for="img-alt">Descreva a imagem em uma frase (ajuda quem usa leitor de tela e o Google)</label>
+    <input id="img-alt" type="text" maxlength="140" required placeholder="Ex.: Sala de jantar com mesa de madeira e luz quente">
+    <p class="dica" id="img-msg" role="status"></p>
+    <div class="acoes"><button class="btn leve" value="cancel" formnovalidate>Cancelar</button><button class="btn" value="ok">Inserir</button></div>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
