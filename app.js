@@ -20,6 +20,33 @@
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function pad(n) { return String(n).padStart(2, '0'); }
   function toLocalInput(d) { d = new Date(d); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  /* Cola texto vindo de ChatGPT/Gemini: converte marcações simples (## Título, ### Subtítulo, - lista, 1. lista, > citação,
+     **negrito**, *itálico*, [texto](https://link)) em formatação. Sem marcações, devolve '' e o texto entra como veio. */
+  function mdToHtml(src) {
+    var s = String(src || '').replace(/\r\n?/g, '\n').trim();
+    if (!/^(#{2,3} |[-*] |\d+[.)] |> )/m.test(s) && !/\*\*[^*\n]+\*\*|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)/.test(s)) return '';
+    function e(x) { return x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function inl(x) {
+      x = e(x);
+      x = x.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, function (m, a, u) { return '<a href="' + u.replace(/"/g, '%22') + '">' + a + '</a>'; });
+      x = x.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<i>$2</i>');
+      return x;
+    }
+    var out = [], list = null, para = [];
+    function endPara() { if (para.length) { out.push('<p>' + para.join(' ') + '</p>'); para = []; } }
+    function endList() { if (list) { out.push('<' + list.t + '>' + list.i.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</' + list.t + '>'); list = null; } }
+    s.split('\n').forEach(function (ln) {
+      var l = ln.trim(), m;
+      if (!l) { endPara(); endList(); return; }
+      if ((m = /^(#{1,3})\s+(.+)$/.exec(l))) { endPara(); endList(); out.push(m[1].length >= 3 ? '<h3>' + inl(m[2]) + '</h3>' : '<h2>' + inl(m[2]) + '</h2>'); return; }
+      if ((m = /^[-*]\s+(.+)$/.exec(l))) { endPara(); if (!list || list.t !== 'ul') { endList(); list = { t: 'ul', i: [] }; } list.i.push(inl(m[1])); return; }
+      if ((m = /^\d+[.)]\s+(.+)$/.exec(l))) { endPara(); if (!list || list.t !== 'ol') { endList(); list = { t: 'ol', i: [] }; } list.i.push(inl(m[1])); return; }
+      if ((m = /^>\s?(.+)$/.exec(l))) { endPara(); endList(); out.push('<blockquote>' + inl(m[1]) + '</blockquote>'); return; }
+      endList(); para.push(inl(l));
+    });
+    endPara(); endList();
+    return out.join('');
+  }
   function fmt(d) { return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
   function msg(el, text, kind) { el.innerHTML = text ? '<div class="msg ' + kind + '" role="' + (kind === 'erro' ? 'alert' : 'status') + '">' + esc(text) + '</div>' : ''; }
 
@@ -216,7 +243,12 @@
       if (e.target.id === 's') { slugTouched = true; }
       touch();
     });
-    ed.addEventListener('paste', function (e) { e.preventDefault(); var t = (e.clipboardData || window.clipboardData).getData('text/plain'); document.execCommand('insertText', false, t); });
+    ed.addEventListener('paste', function (e) {
+      e.preventDefault();
+      var t = (e.clipboardData || window.clipboardData).getData('text/plain');
+      var h = mdToHtml(t);
+      if (h) document.execCommand('insertHTML', false, h); else document.execCommand('insertText', false, t);
+    });
     ed.addEventListener('keydown', function (e) { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); f.requestSubmit(); } });
 
     /* barra de ferramentas */
