@@ -3,24 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src https://*.supabase.co; font-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.supabase.co; connect-src https://*.supabase.co; font-src 'self' https://fonts.gstatic.com; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="referrer" content="no-referrer">
 <title>Painel do blog | Simone Afonso</title>
 <link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <a class="pular" href="#app">Pular para o conteúdo</a>
-<header class="topo" id="topo" hidden>
-  <div class="wrap">
-    <img src="logo-ameixa.png" alt="Simone Afonso" width="92" height="53">
-    <span class="tit">Painel do blog</span>
-    <span class="espaco"></span>
+<div class="estrutura sem-lado" id="estr">
+<aside class="lado" id="topo" hidden>
+  <div class="marca"><img src="logo-branco.png" alt="Simone Afonso Arquitetura e Interiores" width="108" height="62"><p>Painel do blog</p></div>
+  <nav aria-label="Seções do painel"><ul>
+    <li><button class="nav" type="button" id="nav-inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"></path></svg><span>Início</span></button></li>
+    <li><button class="nav" type="button" id="nav-novo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span>Novo texto</span></button></li>
+    <li><a class="nav" href="https://arqsimoneafonso.com.br/blog/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg><span>Ver o blog no site</span></a></li>
+  </ul></nav>
+  <div class="pe">
+    <div class="autora nao-mobile"><b aria-hidden="true">S</b><span><strong>Simone Afonso</strong>Autora</span></div>
     <button class="btn leve" id="btn-sair" type="button">Sair</button>
   </div>
-</header>
-<main id="app" class="wrap" tabindex="-1"><p class="carregando">Carregando…</p></main>
+</aside>
+<main id="app" class="conteudo" tabindex="-1"><p class="carregando">Carregando…</p></main>
+</div>
 
 <dialog id="dlg-link" aria-labelledby="dlg-link-t">
   <form method="dialog" id="f-link">

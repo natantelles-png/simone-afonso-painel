@@ -8,6 +8,8 @@
   var CATS = ['Neuroarquitetura', 'Comercial', 'Home Relooking', 'Home Staging', 'Bastidores'];
   var app = document.getElementById('app');
   var topo = document.getElementById('topo');
+  var estr = document.getElementById('estr');
+  function shell(on) { topo.hidden = !on; estr.classList.toggle('sem-lado', !on); }
   var session = null;
   var dirty = false;
 
@@ -84,38 +86,52 @@
   function setView(html) { app.innerHTML = html; app.focus({ preventScroll: true }); window.scrollTo(0, 0); }
   function needsConfig() { return !URL || URL.indexOf('[INSERIR') >= 0 || !KEY || KEY.indexOf('[INSERIR') >= 0; }
 
-  function viewLogin(note) {
-    topo.hidden = true;
+  function eye(inp, btn) { btn.addEventListener('click', function () { var v = inp.type === 'password'; inp.type = v ? 'text' : 'password'; btn.textContent = v ? 'Ocultar' : 'Mostrar'; btn.setAttribute('aria-pressed', v ? 'true' : 'false'); inp.focus(); }); }
+  function loginErro(er) {
+    var c = (er.body && (er.body.error_code || er.body.code)) || '';
+    if (er instanceof TypeError || /failed to fetch|network/i.test(er.message)) return 'Sem conexão com o servidor. Confira a internet e tente de novo.';
+    if (c === 'email_not_confirmed') return 'Este e-mail ainda não foi confirmado. Abra o convite que chegou no e-mail e clique no link para criar a senha.';
+    if (er.status === 429 || c === 'over_request_rate_limit') return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo, ou use “Esqueci minha senha”.';
+    if (c === 'invalid_credentials' || er.status === 400) return 'E-mail ou senha não conferem. Toque em “Mostrar” para ver o que digitou e confira se não ficou espaço no fim ou letra maiúscula no começo. Se não lembrar da senha, use “Esqueci minha senha”.';
+    return 'Não foi possível entrar: ' + er.message;
+  }
+  function viewLogin(note, errNote) {
+    shell(false);
     setView('<section class="cartao login"><img src="logo-ameixa.png" alt="Simone Afonso" width="130" height="75"><h1>Entrar no painel</h1>' +
       '<p class="dica">Use o e-mail e a senha cadastrados.</p><div id="m"></div>' +
-      '<form id="f" novalidate><label for="em">E-mail</label><input id="em" type="email" autocomplete="username" required>' +
-      '<label for="se">Senha</label><input id="se" type="password" autocomplete="current-password" required>' +
+      '<form id="f" novalidate><label for="em">E-mail</label><input id="em" type="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" required>' +
+      '<label for="se">Senha</label><div class="senha"><input id="se" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required><button type="button" id="ver" aria-pressed="false">Mostrar</button></div>' +
       '<div class="acoes"><button class="btn" type="submit" id="go">Entrar</button></div></form>' +
-      '<p class="dica"><a href="#" id="esq">Esqueci minha senha</a></p></section>');
-    var m = $('#m'); if (note) msg(m, note, 'ok');
+      '<p class="dica"><a href="#" id="esq">Esqueci minha senha / criar nova senha</a></p></section>');
+    var m = $('#m'); if (note) msg(m, note, 'ok'); if (errNote) msg(m, errNote, 'erro');
+    var last = load('sa_email'); if (last) $('#em').value = last;
+    eye($('#se'), $('#ver'));
     if (needsConfig()) msg(m, 'Falta configurar o painel (config.js). Avise quem montou o site.', 'erro');
     $('#f').addEventListener('submit', function (e) {
-      e.preventDefault(); var b = $('#go'); b.disabled = true; msg(m, '');
-      req('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: $('#em').value.trim(), password: $('#se').value }) })
-        .then(function (s) { setSession(s); viewList(); })
-        .catch(function (er) { b.disabled = false; msg(m, er.status === 400 ? 'E-mail ou senha incorretos.' : 'Não foi possível entrar: ' + er.message, 'erro'); });
+      e.preventDefault(); var b = $('#go'), em = $('#em').value.trim().toLowerCase(), se = $('#se').value; msg(m, '');
+      if (!em || !se) { msg(m, 'Preencha o e-mail e a senha.', 'erro'); return; }
+      b.disabled = true; b.textContent = 'Entrando…';
+      req('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: em, password: se }) })
+        .then(function (s) { store('sa_email', em); setSession(s); viewList(); })
+        .catch(function (er) { b.disabled = false; b.textContent = 'Entrar'; msg(m, loginErro(er), 'erro'); });
     });
     $('#esq').addEventListener('click', function (e) {
-      e.preventDefault(); var em = $('#em').value.trim();
+      e.preventDefault(); var em = $('#em').value.trim().toLowerCase();
       if (!em) { msg(m, 'Digite seu e-mail acima e clique de novo.', 'erro'); $('#em').focus(); return; }
       req('/auth/v1/recover', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: em }) })
-        .then(function () { msg(m, 'Se o e-mail estiver cadastrado, enviamos um link para criar uma nova senha.', 'ok'); })
-        .catch(function (er) { msg(m, 'Não foi possível enviar agora: ' + er.message, 'erro'); });
+        .then(function () { msg(m, 'Se o e-mail estiver cadastrado, enviamos um link para criar uma nova senha. Abra o e-mail (olhe também o spam) e clique no link logo: ele vale por pouco tempo.', 'ok'); })
+        .catch(function (er) { msg(m, er.status === 429 ? 'Já enviamos um link há pouco. Espere um minuto e tente de novo.' : 'Não foi possível enviar agora: ' + er.message, 'erro'); });
     });
   }
 
   function viewNewPassword(token) {
-    topo.hidden = true;
+    shell(false);
     setView('<section class="cartao login"><img src="logo-ameixa.png" alt="Simone Afonso" width="130" height="75"><h1>Crie sua senha</h1>' +
       '<p class="dica">Use pelo menos 12 caracteres. Uma frase longa é melhor que uma palavra difícil.</p><div id="m"></div>' +
-      '<form id="f" novalidate><label for="s1">Nova senha</label><input id="s1" type="password" autocomplete="new-password" minlength="12" required>' +
-      '<label for="s2">Repita a senha</label><input id="s2" type="password" autocomplete="new-password" required>' +
+      '<form id="f" novalidate><label for="s1">Nova senha</label><div class="senha"><input id="s1" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" minlength="12" required><button type="button" id="ver1" aria-pressed="false">Mostrar</button></div>' +
+      '<label for="s2">Repita a senha</label><input id="s2" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>' +
       '<div class="acoes"><button class="btn" type="submit" id="go">Salvar senha</button></div></form></section>');
+    eye($('#s1'), $('#ver1'));
     $('#f').addEventListener('submit', function (e) {
       e.preventDefault(); var m = $('#m'), a = $('#s1').value, b = $('#s2').value;
       if (a.length < 12) { msg(m, 'A senha precisa ter pelo menos 12 caracteres.', 'erro'); return; }
@@ -123,27 +139,46 @@
       $('#go').disabled = true;
       req('/auth/v1/user', { method: 'PUT', headers: { apikey: KEY, 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ password: a }) })
         .then(function () { history.replaceState(null, '', location.pathname); viewLogin('Senha criada. Agora é só entrar.'); })
-        .catch(function (er) { $('#go').disabled = false; msg(m, 'Não foi possível salvar: ' + er.message, 'erro'); });
+        .catch(function (er) { $('#go').disabled = false; msg(m, /expired|invalid|JWT|session/i.test(er.message) ? 'O link venceu ou já foi usado. Volte para a tela de entrada, clique em “Esqueci minha senha” e abra o link novo assim que chegar.' : /different|same/i.test(er.message) ? 'Escolha uma senha diferente da anterior.' : /weak|pwned|easy|guess|strength/i.test(er.message) ? 'Essa senha é fácil de adivinhar. Use uma frase longa, com palavras que só você conhece.' : 'Não foi possível salvar: ' + er.message, 'erro'); });
     });
   }
 
-  function statusOf(p) {
-    if (p.status !== 'published') return '<span class="sel rasc">Rascunho</span>';
-    return new Date(p.publish_at) > new Date() ? '<span class="sel agenda">Agendado</span>' : '<span class="sel pub">No ar</span>';
-  }
+  function statusKey(p) { return p.status !== 'published' ? 'rasc' : (new Date(p.publish_at) > new Date() ? 'agenda' : 'pub'); }
+  function statusOf(p) { var k = statusKey(p); return '<span class="sel ' + k + '">' + { rasc: 'Rascunho', agenda: 'Agendado', pub: 'No ar' }[k] + '</span>'; }
+  function navAt(w) { ['inicio', 'novo'].forEach(function (k) { var b = $('#nav-' + k); if (b) { if (k === w) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); } }); }
+  function dataLonga() { var d = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }); return d.charAt(0).toUpperCase() + d.slice(1); }
 
   function viewList() {
-    dirty = false; topo.hidden = false;
-    setView('<div class="barra"><h1>Seus textos</h1><button class="btn" id="novo" type="button">Escrever texto novo</button></div><div id="m"></div><div class="cartao" id="lista"><p class="carregando">Carregando…</p></div>' +
+    dirty = false; shell(true); navAt('inicio');
+    setView('<header class="barra"><div><p class="data-hoje">' + esc(dataLonga()) + '</p><h1>Olá, Simone</h1><p class="sub" id="sub">Veja como estão seus textos.</p></div>' +
+      '<button class="btn" id="novo" type="button">Escrever texto novo</button></header><div id="m"></div>' +
+      '<div id="num" class="numeros"></div><div id="prox"></div>' +
+      '<section class="cartao tabela" aria-labelledby="lt"><div class="lista-h"><h2 id="lt">Seus textos</h2><div class="chips" id="chips" role="group" aria-label="Filtrar por situação"></div></div><div id="lista"><p class="vazio-lista carregando">Carregando…</p></div></section>' +
       '<p class="dica">Depois de publicar, o texto entra no site em até 30 minutos.</p>');
     $('#novo').addEventListener('click', function () { viewEditor(null); });
-    api('/rest/v1/posts?select=id,title,slug,status,publish_at,category,updated_at&order=updated_at.desc').then(function (rows) {
-      var box = $('#lista');
-      if (!rows.length) { box.innerHTML = '<p>Você ainda não escreveu nenhum texto. Clique em “Escrever texto novo”.</p>'; return; }
-      box.innerHTML = '<table><thead><tr><th>Texto</th><th>Assunto</th><th>Situação</th><th>Data</th></tr></thead><tbody>' + rows.map(function (p) {
-        return '<tr><td><a href="#" data-id="' + esc(p.id) + '">' + esc(p.title || '(sem título)') + '</a></td><td>' + esc(p.category) + '</td><td>' + statusOf(p) + '</td><td>' + fmt(p.publish_at) + '</td></tr>';
-      }).join('') + '</tbody></table>';
-      box.addEventListener('click', function (e) { var a = e.target.closest('a[data-id]'); if (a) { e.preventDefault(); viewEditor(a.getAttribute('data-id')); } });
+    api('/rest/v1/posts?select=id,title,slug,status,publish_at,category,updated_at,cover_url&order=updated_at.desc').then(function (rows) {
+      var cnt = { pub: 0, agenda: 0, rasc: 0 }; rows.forEach(function (p) { cnt[statusKey(p)]++; });
+      $('#num').innerHTML = [['No ar', cnt.pub], ['Agendados', cnt.agenda], ['Rascunhos', cnt.rasc], ['Total de textos', rows.length]].map(function (n) { return '<div class="numero"><span>' + n[0] + '</span><strong>' + n[1] + '</strong></div>'; }).join('');
+      var fut = rows.filter(function (p) { return statusKey(p) === 'agenda'; }).sort(function (a, b) { return new Date(a.publish_at) - new Date(b.publish_at); })[0];
+      if (fut) {
+        $('#sub').textContent = 'Seu próximo texto sai em ' + fmt(fut.publish_at) + '.';
+        $('#prox').innerHTML = '<section class="cartao prox" aria-labelledby="pk">' + (fut.cover_url ? '<img src="' + esc(fut.cover_url) + '" alt="">' : '') + '<div class="t"><h2 class="k" id="pk">Próxima publicação</h2><p class="n">' + esc(fut.title) + '</p><p>' + statusOf(fut) + ' <span class="dica">' + esc(fmt(fut.publish_at)) + ' · ' + esc(fut.category) + '</span></p><div><button class="btn leve peq" type="button" data-id="' + esc(fut.id) + '">Revisar texto</button></div></div></section>';
+        $('#prox').addEventListener('click', function (e) { var b = e.target.closest('button[data-id]'); if (b) viewEditor(b.getAttribute('data-id')); });
+      } else if (rows.length) { $('#sub').textContent = cnt.rasc ? 'Você tem ' + cnt.rasc + (cnt.rasc === 1 ? ' rascunho esperando para ser terminado.' : ' rascunhos esperando para serem terminados.') : 'Está tudo em dia.'; }
+      var filtro = 'todos', nomes = [['todos', 'Todos'], ['pub', 'No ar'], ['agenda', 'Agendados'], ['rasc', 'Rascunhos']];
+      function pinta() {
+        $('#chips').innerHTML = nomes.map(function (n) { var q = n[0] === 'todos' ? rows.length : cnt[n[0]]; return '<button type="button" class="chip" data-f="' + n[0] + '" aria-pressed="' + (filtro === n[0]) + '">' + n[1] + ' <span>' + q + '</span></button>'; }).join('');
+        var vis = rows.filter(function (p) { return filtro === 'todos' || statusKey(p) === filtro; });
+        if (!rows.length) { $('#lista').innerHTML = '<p class="vazio-lista">Você ainda não escreveu nenhum texto. Clique em “Escrever texto novo”.</p>'; return; }
+        if (!vis.length) { $('#lista').innerHTML = '<p class="vazio-lista">Nenhum texto nesta situação.</p>'; return; }
+        $('#lista').innerHTML = '<ul class="linhas">' + vis.map(function (p) {
+          return '<li>' + (p.cover_url ? '<img src="' + esc(p.cover_url) + '" alt="">' : '<span class="semfoto" aria-hidden="true"></span>') + '<div class="tx"><b>' + esc(p.title || '(sem título)') + '</b><span>' + esc(p.category) + ' · ' + esc(fmt(p.publish_at)) + '</span></div>' + statusOf(p) +
+            '<button type="button" class="btn leve peq" data-id="' + esc(p.id) + '" aria-label="Abrir: ' + esc(p.title || 'sem título') + '">Abrir</button></li>';
+        }).join('') + '</ul>';
+      }
+      pinta();
+      $('#chips').addEventListener('click', function (e) { var b = e.target.closest('button[data-f]'); if (b) { filtro = b.getAttribute('data-f'); pinta(); } });
+      $('#lista').addEventListener('click', function (e) { var b = e.target.closest('button[data-id]'); if (b) viewEditor(b.getAttribute('data-id')); });
     }).catch(function (er) { handleErr(er, $('#m')); $('#lista').innerHTML = ''; });
   }
 
@@ -154,7 +189,7 @@
 
   /* ---------- editor ---------- */
   function viewEditor(id) {
-    topo.hidden = false;
+    shell(true); navAt(id ? 'inicio' : 'novo');
     setView('<p class="carregando">Carregando…</p>');
     var done = function (p) { renderEditor(p); };
     if (!id) return done({ title: '', slug: '', category: CATS[0], excerpt: '', answer: '', body_html: '', cover_url: '', cover_alt: '', keywords: '', faq: [], status: 'draft', publish_at: new Date().toISOString() });
@@ -164,17 +199,17 @@
   function renderEditor(p) {
     var isNew = !p.id, slugTouched = !isNew, faq = (p.faq || []).slice();
     var published = p.status === 'published' && new Date(p.publish_at) <= new Date();
-    setView('<div class="barra"><h1>' + (isNew ? 'Texto novo' : 'Editar texto') + '</h1><button class="btn leve" id="voltar" type="button">Voltar à lista</button></div><div id="m"></div>' +
-      '<form id="f" novalidate>' +
+    setView('<header class="barra"><div><p class="data-hoje">' + (isNew ? 'Novo' : 'Editando') + '</p><h1>' + (isNew ? 'Texto novo' : 'Editar texto') + '</h1></div><button class="btn leve" id="voltar" type="button">Voltar ao início</button></header><div id="m"></div>' +
+      '<form id="f" novalidate><div class="grade-ed"><div class="col-ed">' +
       '<div class="cartao"><h2>1. O texto</h2>' +
       '<label for="t">Título</label><input id="t" type="text" maxlength="110" autocomplete="off"><div class="cont" id="ct"></div>' +
       '<p class="dica">Escreva como a pessoa pesquisaria no Google. Ex.: “O que é neuroarquitetura e o que ela muda na casa”.</p>' +
       '<div class="linha"><div><label for="c">Assunto</label><select id="c">' + CATS.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') + '</select></div>' +
       '<div><label for="s">Endereço do texto</label><input id="s" type="text" maxlength="70" autocomplete="off"' + (published ? ' readonly' : '') + '></div></div>' +
       '<p class="dica" id="surl"></p>' +
-      '<label for="a">Resposta rápida (de 40 a 60 palavras)</label><textarea id="a" maxlength="500"></textarea><div class="cont" id="ca"></div>' +
+      '<label for="a">Resumo (de 40 a 60 palavras)</label><textarea id="a" maxlength="500"></textarea><div class="cont" id="ca"></div>' +
       '<p class="dica">Responda a pergunta do título direto, em um parágrafo. É esse trecho que o Google e as inteligências artificiais costumam citar.</p>' +
-      '<label for="e">Resumo para o Google (até 155 letras)</label><textarea id="e" maxlength="200"></textarea><div class="cont" id="ce"></div>' +
+      '<label for="e">Descrição para o Google (até 155 letras)</label><textarea id="e" maxlength="200"></textarea><div class="cont" id="ce"></div>' +
       '<span class="rot" id="rt">Texto completo</span><div class="ferr" role="toolbar" aria-label="Formatação do texto" aria-controls="ed">' +
       btn('h2', 'Título') + btn('h3', 'Subtítulo') + btn('b', '<b>N</b>', 'Negrito') + btn('i', '<i>I</i>', 'Itálico') + btn('ul', '• Lista') + btn('ol', '1. Lista') + btn('q', '“ Citação') + btn('p', 'Parágrafo') + btn('a', 'Link') + btn('img', 'Foto') + '</div>' +
       '<div id="ed" class="editor" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="rt" data-vazio="Comece a escrever aqui. Use “Título” para separar as partes do texto."></div>' +
@@ -182,13 +217,16 @@
       '<div class="cartao"><h2>2. Imagem de capa</h2><label for="cf">Foto principal do texto</label><input id="cf" type="file" accept="image/jpeg,image/png,image/webp"><div id="cm" role="status" class="dica"></div><div class="capa-prev" id="cp"></div>' +
       '<label for="ca2">Descreva a foto em uma frase</label><input id="ca2" type="text" maxlength="140" autocomplete="off"><p class="dica">Ex.: “Quarto de bebê com nuvem iluminada sobre o berço”.</p></div>' +
       '<div class="cartao"><h2>3. Perguntas frequentes</h2><p class="dica">De 2 a 5 perguntas que as pessoas fazem sobre o assunto. Aparecem no fim do texto e ajudam a ser encontrada em buscas por voz e por IA.</p><div id="faq"></div><button class="btn leve" id="addfaq" type="button">Adicionar pergunta</button></div>' +
+      '</div><aside class="col-lado">' +
+      '<div class="cartao"><h2>Como aparece no Google</h2><div class="google" aria-hidden="true"><div class="s"><i>SA</i><span>Simone Afonso<small id="gu"></small></span></div><p class="g1" id="g1"></p><p class="g2" id="g2"></p></div></div>' +
+      '<div class="cartao"><div class="ck-cab"><h2>Pronto para publicar?</h2><strong id="ckn"></strong></div><div class="progresso" aria-hidden="true"><div id="ckb"></div></div><ul class="check" id="ck" aria-live="polite"></ul></div>' +
       '<div class="cartao"><h2>4. Publicação</h2><fieldset><legend class="rot">Situação</legend>' +
       '<label class="radio"><input type="radio" name="st" value="draft"> Rascunho (só você vê)</label><label class="radio"><input type="radio" name="st" value="published"> Publicar</label></fieldset>' +
       '<label for="d">Data e hora de publicação</label><input id="d" type="datetime-local"><p class="dica">Escolha uma data futura para agendar.</p>' +
-      '<label for="k">Palavras-chave (opcional, separadas por vírgula)</label><input id="k" type="text" maxlength="160" autocomplete="off"></div>' +
-      '<div class="cartao"><h2>Checklist antes de publicar</h2><ul class="check" id="ck" aria-live="polite"></ul></div>' +
+      '<label for="k">Palavras-chave (opcional, separadas por vírgula)</label><input id="k" type="text" maxlength="160" autocomplete="off">' +
       '<div class="rodape-acoes"><button class="btn" id="salvar" type="submit">Salvar</button>' +
-      (isNew ? '' : '<button class="btn perigo" id="apagar" type="button">Apagar texto</button>') + '</div></form>');
+      (isNew ? '' : '<button class="btn perigo" id="apagar" type="button">Apagar texto</button>') + '</div></div>' +
+      '</aside></div></form>');
 
     var f = $('#f'), ed = $('#ed'), m = $('#m');
     function btn(k, label, aria) { return '<button type="button" data-cmd="' + k + '"' + (aria ? ' aria-label="' + aria + '"' : '') + '>' + label + '</button>'; }
@@ -218,20 +256,26 @@
       cnt('#ca', a + ' palavras (ideal: 40 a 60)', a >= 40 && a <= 60, a > 80 || (a > 0 && a < 25));
       cnt('#ce', e + ' letras (ideal: 120 a 155)', e >= 120 && e <= 155, e > 165);
       $('#surl').textContent = 'Endereço no site: ' + C.SITE_URL + '/blog/' + ($('#s').value || '…') + '/';
+      $('#g1').textContent = $('#t').value.trim() || 'Título do seu texto';
+      $('#gu').textContent = (C.SITE_URL || '').replace(/^https?:\/\//, '') + ' › blog › ' + ($('#s').value || '…');
+      $('#g2').textContent = $('#e').value.trim() || 'A descrição que aparece no Google vai aparecer aqui.';
     }
     function cnt(sel, text, good, bad) { var el = $(sel); el.textContent = text; el.className = 'cont ' + (good ? 'bom' : bad ? 'ruim' : ''); }
     function checklist() {
       var body = ed.innerText || '', n = words(body), h2 = ed.querySelectorAll('h2').length;
       var items = [
         ['Título entre 30 e 60 letras', $('#t').value.trim().length >= 30 && $('#t').value.trim().length <= 60],
-        ['Resposta rápida entre 40 e 60 palavras', words($('#a').value) >= 40 && words($('#a').value) <= 60],
-        ['Resumo para o Google entre 120 e 155 letras', $('#e').value.trim().length >= 120 && $('#e').value.trim().length <= 155],
+        ['Resumo entre 40 e 60 palavras', words($('#a').value) >= 40 && words($('#a').value) <= 60],
+        ['Descrição para o Google entre 120 e 155 letras', $('#e').value.trim().length >= 120 && $('#e').value.trim().length <= 155],
         ['Texto com pelo menos 300 palavras (agora: ' + n + ')', n >= 300],
         ['Pelo menos 3 “Títulos” dentro do texto (agora: ' + h2 + ')', h2 >= 3],
         ['Imagem de capa com descrição', !!cover && $('#ca2').value.trim().length > 5],
         ['Pelo menos 2 perguntas frequentes completas', faq.filter(function (q) { return q.q.trim() && q.a.trim(); }).length >= 2],
         ['Pelo menos um link para outra página (projetos ou WhatsApp)', !!ed.querySelector('a')]
       ];
+      var feitos = items.filter(function (i) { return i[1]; }).length;
+      $('#ckn').textContent = feitos + ' de ' + items.length;
+      $('#ckb').style.width = Math.round(feitos / items.length * 100) + '%';
       $('#ck').innerHTML = items.map(function (i) { return '<li class="' + (i[1] ? 'ok' : '') + '">' + esc(i[0]) + '</li>'; }).join('');
     }
     function vazio() { ed.classList.toggle('vazio', !ed.textContent.trim() && !ed.querySelector('img')); }
@@ -300,8 +344,8 @@
       var errs = [];
       if (!title) errs.push('Escreva o título.'); if (!slug) errs.push('O endereço do texto não pode ficar vazio.');
       if (pub) {
-        if (words($('#a').value) < 20) errs.push('Escreva a resposta rápida antes de publicar.');
-        if (!$('#e').value.trim()) errs.push('Escreva o resumo para o Google.');
+        if (words($('#a').value) < 20) errs.push('Escreva o resumo (40 a 60 palavras) antes de publicar.');
+        if (!$('#e').value.trim()) errs.push('Escreva a descrição para o Google.');
         if (!cover) errs.push('Envie a imagem de capa.'); else if (!$('#ca2').value.trim()) errs.push('Descreva a imagem de capa.');
         if (words(ed.innerText) < 100) errs.push('O texto está muito curto para publicar.');
       }
@@ -368,11 +412,17 @@
     if (session) fetch(URL + '/auth/v1/logout', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + session.access_token } }).catch(function () { });
     setSession(null); viewLogin('Você saiu do painel.');
   });
+  function sairSeguro(fn) { if (!dirty || confirm('Você tem alterações não salvas. Sair mesmo assim?')) fn(); }
+  $('#nav-inicio').addEventListener('click', function () { sairSeguro(viewList); });
+  $('#nav-novo').addEventListener('click', function () { sairSeguro(function () { viewEditor(null); }); });
   window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
   (function init() {
     var h = location.hash.replace(/^#/, ''), q = {};
     h.split('&').forEach(function (x) { var p = x.split('='); if (p[0]) q[p[0]] = decodeURIComponent(p[1] || ''); });
+    var qs = {}; location.search.replace(/^\?/, '').split('&').forEach(function (x) { var p = x.split('='); if (p[0]) qs[p[0]] = decodeURIComponent((p[1] || '').replace(/\+/g, ' ')); });
+    var ec = q.error_code || qs.error_code || q.error || qs.error;
+    if (ec) { history.replaceState(null, '', location.pathname); return viewLogin(null, /expired|otp/i.test(ec + (q.error_description || '')) ? 'Esse link venceu ou já foi usado (os links do e-mail valem por pouco tempo). Digite seu e-mail e clique em “Esqueci minha senha” para receber um novo, e abra assim que chegar.' : 'Não foi possível validar o link do e-mail. Peça um novo em “Esqueci minha senha”.'); }
     if (q.access_token && (q.type === 'recovery' || q.type === 'invite')) { history.replaceState(null, '', location.pathname); return viewNewPassword(q.access_token); }
     try { session = JSON.parse(load('sa_sess') || 'null'); } catch (e) { session = null; }
     if (session && !needsConfig()) return viewList();
