@@ -5,7 +5,8 @@
   var C = window.SA_CONFIG || {};
   var URL = (C.SUPABASE_URL || '').replace(/\/$/, '');
   var KEY = C.SUPABASE_ANON_KEY || '';
-  var CATS = ['Neuroarquitetura', 'Comercial', 'Home Relooking', 'Home Staging', 'Bastidores'];
+  var CATS = ['Neuroarquitetura', 'Comercial', 'Home Relooking', 'Home Staging', 'Consultoria', 'Bastidores'];
+  var OUTRO = 'Outro';
   var app = document.getElementById('app');
   var topo = document.getElementById('topo');
   var estr = document.getElementById('estr');
@@ -204,7 +205,8 @@
       '<div class="cartao"><h2>1. O texto</h2>' +
       '<label for="t">Título</label><input id="t" type="text" maxlength="110" autocomplete="off"><div class="cont" id="ct"></div>' +
       '<p class="dica">Escreva como a pessoa pesquisaria no Google. Ex.: “O que é neuroarquitetura e o que ela muda na casa”.</p>' +
-      '<div class="linha"><div><label for="c">Assunto</label><select id="c">' + CATS.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="linha"><div><label for="c">Assunto</label><select id="c">' + CATS.concat([OUTRO]).map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') + '</select></div>' +
+      '<div id="co-box" hidden><label for="co">Qual é o assunto?</label><input id="co" type="text" maxlength="40" autocomplete="off"><p class="dica">Escreva o nome do assunto, em poucas palavras. Ex.: “Paisagismo”.</p></div>' +
       '<div><label for="s">Endereço do texto</label><input id="s" type="text" maxlength="70" autocomplete="off"' + (published ? ' readonly' : '') + '></div></div>' +
       '<p class="dica" id="surl"></p>' +
       '<label for="a">Resumo (de 40 a 60 palavras)</label><textarea id="a" maxlength="500"></textarea><div class="cont" id="ca"></div>' +
@@ -230,7 +232,12 @@
 
     var f = $('#f'), ed = $('#ed'), m = $('#m');
     function btn(k, label, aria) { return '<button type="button" data-cmd="' + k + '"' + (aria ? ' aria-label="' + aria + '"' : '') + '>' + label + '</button>'; }
-    $('#t').value = p.title; $('#c').value = p.category; $('#s').value = p.slug; $('#a').value = p.answer; $('#e').value = p.excerpt;
+    var catCustom = CATS.indexOf(p.category) < 0 && !!p.category;
+    $('#t').value = p.title; $('#c').value = catCustom ? OUTRO : p.category; $('#co').value = catCustom ? p.category : '';
+    function catShow() { $('#co-box').hidden = $('#c').value !== OUTRO; }
+    function catVal() { return $('#c').value === OUTRO ? $('#co').value.trim().replace(/\s+/g, ' ') : $('#c').value; }
+    catShow(); $('#c').addEventListener('change', function () { catShow(); if (!$('#co-box').hidden) $('#co').focus(); });
+    $('#s').value = p.slug; $('#a').value = p.answer; $('#e').value = p.excerpt;
     try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (x) { }
     ed.innerHTML = cleanBody(p.body_html); $('#ca2').value = p.cover_alt; $('#k').value = p.keywords;
     $('#d').value = toLocalInput(p.publish_at); f.elements.st.value = p.status;
@@ -342,6 +349,7 @@
       var title = $('#t').value.trim(), slug = slugify($('#s').value);
       var status = f.elements.st.value, pub = status === 'published';
       var errs = [];
+      if ($('#c').value === OUTRO && !$('#co').value.trim()) errs.push('Escreva qual é o assunto, no campo que apareceu ao escolher “Outro”.');
       if (!title) errs.push('Escreva o título.'); if (!slug) errs.push('O endereço do texto não pode ficar vazio.');
       if (pub) {
         if (words($('#a').value) < 20) errs.push('Escreva o resumo (40 a 60 palavras) antes de publicar.');
@@ -352,7 +360,7 @@
       if (errs.length) { msg(m, errs.join(' '), 'erro'); window.scrollTo(0, 0); return; }
       var date = $('#d').value ? new Date($('#d').value).toISOString() : new Date().toISOString();
       var row = {
-        title: title, slug: slug, category: $('#c').value, excerpt: $('#e').value.trim(), answer: $('#a').value.trim(), body_html: ed.innerHTML,
+        title: title, slug: slug, category: catVal(), excerpt: $('#e').value.trim(), answer: $('#a').value.trim(), body_html: ed.innerHTML,
         cover_url: cover || null, cover_alt: $('#ca2').value.trim(), keywords: $('#k').value.trim(),
         faq: faq.filter(function (q) { return q.q.trim() && q.a.trim(); }).map(function (q) { return { q: q.q.trim(), a: q.a.trim() }; }),
         status: status, publish_at: date
