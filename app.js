@@ -98,7 +98,7 @@
   }
   function viewLogin(note, errNote) {
     shell(false);
-    setView('<section class="cartao login"><img src="logo-ameixa.png" alt="Simone Afonso" width="130" height="75"><h1>Entrar no painel</h1>' +
+    setView('<section class="cartao login"><img src="logo-ameixa.png" alt="Simone Afonso" width="160" height="95"><h1>Entrar no painel</h1>' +
       '<p class="dica">Use o e-mail e a senha cadastrados.</p><div id="m"></div>' +
       '<form id="f" novalidate><label for="em">E-mail</label><input id="em" type="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" required>' +
       '<label for="se">Senha</label><div class="senha"><input id="se" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required><button type="button" id="ver" aria-pressed="false">Mostrar</button></div>' +
@@ -127,7 +127,7 @@
 
   function viewNewPassword(token) {
     shell(false);
-    setView('<section class="cartao login"><img src="logo-ameixa.png" alt="Simone Afonso" width="130" height="75"><h1>Crie sua senha</h1>' +
+    setView('<section class="cartao login"><img src="logo-ameixa.png" alt="Simone Afonso" width="160" height="95"><h1>Crie sua senha</h1>' +
       '<p class="dica">Use pelo menos 12 caracteres. Uma frase longa é melhor que uma palavra difícil.</p><div id="m"></div>' +
       '<form id="f" novalidate><label for="s1">Nova senha</label><div class="senha"><input id="s1" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" minlength="12" required><button type="button" id="ver1" aria-pressed="false">Mostrar</button></div>' +
       '<label for="s2">Repita a senha</label><input id="s2" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>' +
